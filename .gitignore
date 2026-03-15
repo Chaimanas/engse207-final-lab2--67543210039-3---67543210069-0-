@@ -2,3 +2,6 @@ node_modules/
 .env
 nginx/certs/*.pem
 *.log
+*.cwd
+tmp-*
+.DS_Store
