@@ -1,5 +1,6 @@
-# 🚀 Task Board Microservices Project (Set 1)
-### รายงานการพัฒนาระบบจัดการกระดานงานภายใต้สถาปัตยกรรมไมโครเซอร์วิส
+# ENGSE207 Software Architecture
+
+## Final Lab Set 1 — Microservices + HTTPS + Lightweight Logging
 
 ---
 
@@ -11,97 +12,237 @@
 
 ---
 
-## 📝 1. ภาพรวมของระบบ (Project Overview)
-โปรเจกต์นี้เป็นการพัฒนาระบบจัดการงาน (Task Board) โดยใช้สถาปัตยกรรม **Microservices** เพื่อศึกษาการแยกส่วนการทำงาน (Decoupling) และการสื่อสารระหว่างเซอร์วิสผ่าน API Gateway (Nginx) โดยมีวัตถุประสงค์หลักคือ:
-* **Scalability:** เพื่อสร้างระบบที่ยืดหยุ่นและขยายตัวได้ง่าย
-* **Security:** นำมาตรฐาน HTTPS และ JWT มาใช้ในการรับส่งข้อมูลอย่างปลอดภัย
-* **Observability:** ศึกษาระบบ Centralized Logging เพื่อติดตามเหตุการณ์ในระบบ
+# 📌 ภาพรวมระบบ (System Overview)
+
+โปรเจกต์นี้เป็นระบบ **Task Board แบบ Microservices Architecture**
+
+ประกอบด้วย:
+
+* 🔐 HTTPS ผ่าน Nginx (Self-Signed Certificate)
+* 🔑 JWT Authentication
+* 📝 Lightweight Logging เก็บลง PostgreSQL
+* 🐳 Docker Compose สำหรับ orchestration
+* 💻 Frontend สำหรับจัดการ Task และดู Log
+
+ระบบนี้ **ไม่มี Register**
+ใช้เฉพาะ **Seed Users ที่กำหนดไว้**
 
 ---
 
-## 🏗️ 2. Architecture Diagram & Flow
-![Architecture Diagram](./screenshots/architecture_diagram.png)
+# 🏗️ Architecture Diagram
 
-### **สถาปัตยกรรมเครือข่าย (System Flow)**
-```text
-Browser / Postman
-       │
-       │ HTTPS :443 (HTTP :80 redirect → HTTPS)
-       ▼
-┌─────────────────────────────────────────────────────────────┐
-│  🛡️ Nginx (API Gateway + TLS Termination + Rate Limiter)    │
-│                                                             │
-│  /api/auth/* → auth-service:3001    (Public)               │
-│  /api/tasks/* → task-service:3002   [JWT Required]          │
-│  /api/logs/* → log-service:3003    [JWT Required]          │
-│  /             → frontend:80         (Static HTML)          │
-└───────┬────────────────┬──────────────────┬─────────────────┘
-        ▼                ▼                  ▼
-┌──────────────┐ ┌───────────────┐ ┌──────────────────┐
-│ 🔑 Auth Svc  │ │ 📋 Task Svc   │ │ 📝 Log Service   │
-│    :3001     │ │    :3002      │ │    :3003         │
-└──────┬───────┘ └───────┬───────┘ └────────┬─────────┘
-       └────────┬────────┴──────────────────┘
-                ▼
-      ┌─────────────────────┐
-      │  🗄️ PostgreSQL       │
-      │  (1 Shared DB)      │
-      └─────────────────────┘
+```
+Browser
+   │ HTTPS :443
+   ▼
+Nginx (API Gateway + TLS + Rate Limit)
+   ├── /api/auth   → auth-service:3001
+   ├── /api/tasks  → task-service:3002
+   ├── /api/logs   → log-service:3003
+   └── /           → frontend:80
+             │
+             ▼
+         PostgreSQL
+```
+
 ---
 
-### 3. โครงสร้าง Repository (Repository Structure)
+# 📂 โครงสร้าง Repository
+
+```
 final-lab-set1/
-├── auth-service/       # ระบบยืนยันตัวตนและออก JWT
-├── task-service/       # ระบบจัดการ Task CRUD
-├── log-service/        # ระบบบันทึก Log กลาง
-├── nginx/              # ไฟล์ตั้งค่า Nginx (HTTPS + Reverse Proxy)
-├── frontend/           # ส่วนหน้าบ้าน (Static HTML/JS/CSS)
-├── db/                 # init.sql (Schema + Seed Users)
-├── scripts/            # gen-certs.sh (สร้าง Self-signed cert)
-├── screenshots/        # หลักฐานการทดสอบระบบ (01-12)
-├── docker-compose.yml  # ไฟล์สั่งรัน Container ทั้งหมด
-├── TEAM_SPLIT.md       # สรุปการแบ่งงาน
-└── INDIVIDUAL_REPORT.md # รายงานรายบุคคล
+│
+├── nginx/
+├── auth-service/
+├── task-service/
+├── log-service/
+├── frontend/
+├── db/
+├── scripts/
+├── screenshots/
+│
+├── docker-compose.yml
+├── README.md
+├── TEAM_SPLIT.md
+└── INDIVIDUAL_REPORT_xxx.md
+```
 
 ---
 
-### 4. วิธีการรันระบบ (Setup & Deployment).
-การสร้าง SSL Certificate
-ใช้คำสั่งด้านล่างเพื่อสร้างไฟล์ใบรับรองสำหรับการใช้งาน HTTPS บน Nginx:
+# 🔐 Seed Users สำหรับทดสอบ
 
-Bash
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
--keyout nginx/ssl/nginx.key -out nginx/ssl/nginx.crt
-การรันระบบด้วย Docker Compose
-Bash
+| Email                                     | Password  | Role   |
+| ----------------------------------------- | --------- | ------ |
+| [alice@lab.local](mailto:alice@lab.local) | alice123  | member |
+| [bob@lab.local](mailto:bob@lab.local)     | bob456    | member |
+| [admin@lab.local](mailto:admin@lab.local) | adminpass | admin  |
+
+⚠️ นักศึกษาได้สร้าง **bcrypt hash จริง** แล้วแทนค่าใน `db/init.sql`
+
+ตัวอย่างการสร้าง hash:
+
+```
+node -e "const b=require('bcryptjs'); console.log(b.hashSync('alice123',10))"
+```
+
+---
+
+# 🚀 วิธีรันระบบ (How to Run)
+
+## 1️⃣ Clone Repository
+
+```
+git clone https://github.com/Chaimanas/Final-Lab-set1.git
+cd Final-Lab-set1
+```
+
+---
+
+## 2️⃣ สร้าง SSL Certificate (รันครั้งแรกเท่านั้น)
+
+```
+chmod +x scripts/gen-certs.sh
+./scripts/gen-certs.sh
+```
+
+---
+
+## 3️⃣ รันระบบด้วย Docker
+
+```
 docker compose up --build
-URL: https://localhost
+```
 
 ---
-### 5. รายชื่อ Seed Users สำหรับทดสอบ
-Email,Password,Role
-admin@example.com,password123,Administrator
 
-หมายเหตุ: ระบบใช้การตรวจสอบรหัสผ่านและออก Token ผ่าน Auth Service โดยมีการจัดการข้อมูลเบื้องต้นผ่าน SQL Script ในขั้นตอน Build ระบบ
+## 4️⃣ เปิดระบบใน Browser
+
+```
+https://localhost
+```
+
+กด Accept Certificate Warning (เนื่องจากเป็น self-signed)
+
 ---
-### 6. วิธีการทดสอบระบบ (Testing Guide)
-Frontend: ทดสอบการ Login และใช้งานฟังก์ชันจัดการ Task (Create, Read, Update, Delete) ผ่านหน้าจอ UI
 
-API Testing: ทดสอบการส่ง Request โดยแนบ Token ใน Header:
+# 🧪 ตัวอย่างการทดสอบ API
 
-HTTP
-Authorization: Bearer <JWT_TOKEN>
+### Login
+
+```
+curl -sk -X POST https://localhost/api/auth/login \
+-H "Content-Type: application/json" \
+-d '{"email":"alice@lab.local","password":"alice123"}'
+```
+
+### Create Task
+
+```
+curl -sk -X POST https://localhost/api/tasks/ \
+-H "Authorization: Bearer TOKEN"
+```
+
 ---
-###  7. คำอธิบายทางเทคนิค
-HTTPS: ป้องกันการดักจับข้อมูล (Man-in-the-Middle) ผ่านการตั้งค่า TLS บน Nginx
 
-JWT: ระบบ Stateless Authentication โดย Auth Service จะออก Token ที่บรรจุข้อมูล id และ role เพื่อให้เซอร์วิสอื่นใช้ตรวจสอบสิทธิ์
+# 📝 การทำงานของ Logging
 
-Logging: ออกแบบเป็น Lightweight Logging โดยทุกเซอร์วิสจะส่งเหตุการณ์สำคัญไปยัง Log Service ผ่าน HTTP POST
+* Auth Service จะ log เมื่อ login สำเร็จ / ล้มเหลว
+* Task Service จะ log เมื่อมีการสร้างหรือลบ task
+* Services จะส่ง log ไปที่ Log Service ผ่าน REST API
+* Log Service บันทึกข้อมูลลง PostgreSQL
+* Admin สามารถดู log ผ่านหน้า Log Dashboard
+
 ---
-### 8. ข้อจำกัดของระบบ (Known Limitations)
-Shared Database: ยังใช้ PostgreSQL ร่วมกัน (ในระบบจริงควรแยก Database ต่อ Service)
 
-SSL Certificate: เป็นแบบ Self-signed ซึ่งเบราว์เซอร์จะแจ้งเตือนความปลอดภัย
+# 🔐 Security Features
 
-Token Lifecycle: ยังไม่มีระบบ Refresh Token
+* ใช้ HTTPS ผ่าน Nginx (TLS Termination)
+* ใช้ JWT Middleware ป้องกัน API
+* มี Rate Limit สำหรับ Login
+* Role-based Access Control (admin / member)
+* Endpoint `/api/logs/internal` ถูก block จากภายนอก
+
+---
+
+# ⚠️ ข้อจำกัดของระบบ (Known Limitations)
+
+* ใช้ Shared Database (ยังไม่แยก DB ต่อ service)
+* ใช้ Self-Signed Certificate (เหมาะกับ Development)
+* ยังไม่มี Horizontal Scaling
+* ยังไม่มี Monitoring / Observability แบบ Production
+
+---
+
+# 🔄 9️⃣ วิธี Restart ระบบอย่างถูกต้อง
+
+เมื่อปิดเครื่อง หรือ Docker หยุดทำงาน ให้ทำตามขั้นตอนนี้
+
+---
+
+## ✅ กรณี Restart ปกติ (ข้อมูล DB ยังอยู่)
+
+ให้เปิด **Docker Desktop ก่อน** แล้วรัน:
+
+```
+docker compose up -d
+```
+
+ระบบจะ start container ทั้งหมดใหม่ โดยยังใช้ข้อมูลเดิมใน PostgreSQL
+
+---
+
+## ❗ กรณีระบบ Error / Login ไม่ได้ / Schema ผิด
+
+ให้ Reset ระบบทั้งหมด:
+
+```
+docker compose down -v
+docker compose up --build
+```
+
+คำสั่งนี้จะ:
+
+* ลบ PostgreSQL volume เก่า
+* สร้าง database ใหม่
+* รัน `init.sql` ใหม่
+* start services ใหม่ทั้งหมด
+
+---
+
+## 🔧 กรณีแก้ `.env` หรือ `init.sql`
+
+ต้อง rebuild ระบบเสมอ:
+
+```
+docker compose down -v
+docker compose up --build
+```
+
+---
+
+## 🧠 ลำดับการ start service (แนวคิด)
+
+1. PostgreSQL ต้อง start ก่อน
+2. Auth / Task / Log Service start ต่อ
+3. Frontend start
+4. Nginx start เป็น Gateway
+
+(Docker Compose จัดการลำดับให้อัตโนมัติ)
+
+---
+
+# 📸 Screenshots
+
+ดูหลักฐานการทดสอบในโฟลเดอร์ `screenshots/`
+
+---
+
+# 📚 สิ่งที่ได้เรียนรู้จากงานนี้
+
+* การออกแบบ Microservices Architecture
+* การตั้งค่า Reverse Proxy และ HTTPS
+* การทำ JWT Authentication Flow
+* การทำ Lightweight Distributed Logging
+* การใช้งาน Docker Compose เพื่อ orchestrate services
+
+---
