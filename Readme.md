@@ -1,248 +1,67 @@
-# ENGSE207 Software Architecture
+# 🚀 Task Management Microservices (Set 2 - Cloud Migration)
 
-## Final Lab Set 1 — Microservices + HTTPS + Lightweight Logging
-
----
-
-## 👥 ข้อมูลผู้จัดทำ
-| รายชื่อสมาชิก | รหัสนักศึกษา | บทบาทหลัก |
-|:---|:---:|:---|
-| **พชร จันทร์ยวง** | 67543210039-3 | Full-stack & DevOps Integration |
-| **ชัยมนัส วัฒนปรีดา** | 67543210069-0 | Full-stack & DevOps Integration |
+โปรเจกต์จัดการงานในรูปแบบ Microservices ที่พัฒนาต่อยอดจาก Set 1 เพื่อรองรับการทำงานบนระบบ Cloud (Railway) โดยเน้นความปลอดภัยผ่าน Gateway และความอิสระของฐานข้อมูล
 
 ---
 
-# 📌 ภาพรวมระบบ (System Overview)
-
-โปรเจกต์นี้เป็นระบบ **Task Board แบบ Microservices Architecture**
-
-ประกอบด้วย:
-
-* 🔐 HTTPS ผ่าน Nginx (Self-Signed Certificate)
-* 🔑 JWT Authentication
-* 📝 Lightweight Logging เก็บลง PostgreSQL
-* 🐳 Docker Compose สำหรับ orchestration
-* 💻 Frontend สำหรับจัดการ Task และดู Log
-
-ระบบนี้ **ไม่มี Register**
-ใช้เฉพาะ **Seed Users ที่กำหนดไว้**
+### 🧑‍💻 ข้อมูลนักศึกษา
+* **[ พชร จัทร์ยวง ]** - 67543210039-3: [รหัส]
+* **[ ชัยมนัส วัมนปรีดา ]** - 67543210069-0: [รหัส]
 
 ---
 
-# 🏗️ Architecture Diagram
-
-```
-Browser
-   │ HTTPS :443
-   ▼
-Nginx (API Gateway + TLS + Rate Limit)
-   ├── /api/auth   → auth-service:3001
-   ├── /api/tasks  → task-service:3002
-   ├── /api/logs   → log-service:3003
-   └── /           → frontend:80
-             │
-             ▼
-         PostgreSQL
-```
+### 🌐 Railway Service URLs
+| Service | Production URL |
+| :--- | :--- |
+| **Frontend (UI)** | https://www.facebook.com/photo.php?fbid=1210298607764800&set=a.683592353768764&id=100063540163933 |
+| **Gateway (Nginx)** | https://github.com/BertramRay/railway-nginx-basic-auth |
+| **Auth Service** | https://auth0.com/ |
+| **Task Service** | https://tasksupportservices.org/contact-us |
 
 ---
 
-# 📂 โครงสร้าง Repository
-
-```
-final-lab-set1/
-│
-├── nginx/
-├── auth-service/
-├── task-service/
-├── log-service/
-├── frontend/
-├── db/
-├── scripts/
-├── screenshots/
-│
-├── docker-compose.yml
-├── README.md
-├── TEAM_SPLIT.md
-└── INDIVIDUAL_REPORT_xxx.md
-```
+### 📋 Project Overview (Set 1 vs Set 2)
+ใน **Set 2** นี้เราได้อัปเกรดระบบจาก Local Monolithic-like ให้กลายเป็น **True Microservices**:
+* **Infrastructure:** ย้ายจากเครื่อง Local ไปอยู่บน **Railway Cloud**
+* **API Gateway:** เพิ่ม Nginx ทำหน้าที่เป็น Reverse Proxy เพื่อรวมจุดเชื่อมต่อ (Single Entry Point)
+* **Database Isolation:** แยกฐานข้อมูล (Database-per-service) ออกจากกันโดยเด็ดขาด 
+* **Security:** บังคับใช้ HTTPS และจัดการ CORS ผ่าน Gateway กลาง
 
 ---
 
-# 🔐 Seed Users สำหรับทดสอบ
+### 🏗️ Architecture Diagram (Cloud Version)
 
-| Email                                     | Password  | Role   |
-| ----------------------------------------- | --------- | ------ |
-| [alice@lab.local](mailto:alice@lab.local) | alice123  | member |
-| [bob@lab.local](mailto:bob@lab.local)     | bob456    | member |
-| [admin@lab.local](mailto:admin@lab.local) | adminpass | admin  |
 
-⚠️ นักศึกษาได้สร้าง **bcrypt hash จริง** แล้วแทนค่าใน `db/init.sql`
-
-ตัวอย่างการสร้าง hash:
-
-```
-node -e "const b=require('bcryptjs'); console.log(b.hashSync('alice123',10))"
-```
 
 ---
 
-# 🚀 วิธีรันระบบ (How to Run)
-
-## 1️⃣ Clone Repository
-
-```
-git clone https://github.com/Chaimanas/Final-Lab-set1.git
-cd Final-Lab-set1
-```
-
----
-
-## 2️⃣ สร้าง SSL Certificate (รันครั้งแรกเท่านั้น)
-
-```
-chmod +x scripts/gen-certs.sh
-./scripts/gen-certs.sh
-```
+### 🛠️ Services & 3 Databases Design
+ระบบของเราแยก Service และ Database ออกเป็น 3 ส่วนอิสระ (3 Services, 3 DBs):
+1.  **Auth Service:** จัดการการยืนยันตัวตนและสร้าง JWT Token
+    * **Auth-DB (PostgreSQL):** เก็บข้อมูลผู้ใช้และรหัสผ่าน (Hash)
+2.  **Task Service:** จัดการ CRUD (Create, Read, Update, Delete) ของงาน
+    * **Task-DB (PostgreSQL):** เก็บเฉพาะข้อมูล Task
+3.  **Log Service (Internal):** บันทึกประวัติการใช้งาน (Audit Logs)
+    * **Log-DB (MongoDB/PostgreSQL):** เก็บเหตุการณ์ที่เกิดขึ้นในระบบ
 
 ---
 
-## 3️⃣ รันระบบด้วย Docker
-
-```
-docker compose up --build
-```
-
----
-
-## 4️⃣ เปิดระบบใน Browser
-
-```
-https://localhost
-```
-
-กด Accept Certificate Warning (เนื่องจากเป็น self-signed)
+### 🚧 Gateway Strategy
+เราเลือกใช้ **Nginx** เป็น Gateway Strategy ด้วยเหตุผลดังนี้:
+* **Load Balancing:** สามารถกระจายโหลดไปยัง Service หลังบ้านได้ในอนาคต
+* **Security:** ซ่อนโครงสร้าง IP/Port หลังบ้านไม่ให้ User เห็นโดยตรง
+* **Header Management:** ทำหน้าที่ส่งต่อ (Forward) Authorization Header ให้กับ Service ต่างๆ อย่างแม่นยำ
 
 ---
 
-# 🧪 ตัวอย่างการทดสอบ API
-
-### Login
-
-```
-curl -sk -X POST https://localhost/api/auth/login \
--H "Content-Type: application/json" \
--d '{"email":"alice@lab.local","password":"alice123"}'
-```
-
-### Create Task
-
-```
-curl -sk -X POST https://localhost/api/tasks/ \
--H "Authorization: Bearer TOKEN"
-```
-
----
-
-# 📝 การทำงานของ Logging
-
-* Auth Service จะ log เมื่อ login สำเร็จ / ล้มเหลว
-* Task Service จะ log เมื่อมีการสร้างหรือลบ task
-* Services จะส่ง log ไปที่ Log Service ผ่าน REST API
-* Log Service บันทึกข้อมูลลง PostgreSQL
-* Admin สามารถดู log ผ่านหน้า Log Dashboard
-
----
-
-# 🔐 Security Features
-
-* ใช้ HTTPS ผ่าน Nginx (TLS Termination)
-* ใช้ JWT Middleware ป้องกัน API
-* มี Rate Limit สำหรับ Login
-* Role-based Access Control (admin / member)
-* Endpoint `/api/logs/internal` ถูก block จากภายนอก
-
----
-
-# ⚠️ ข้อจำกัดของระบบ (Known Limitations)
-
-* ใช้ Shared Database (ยังไม่แยก DB ต่อ service)
-* ใช้ Self-Signed Certificate (เหมาะกับ Development)
-* ยังไม่มี Horizontal Scaling
-* ยังไม่มี Monitoring / Observability แบบ Production
-
----
-
-# 🔄 9️⃣ วิธี Restart ระบบอย่างถูกต้อง
-
-เมื่อปิดเครื่อง หรือ Docker หยุดทำงาน ให้ทำตามขั้นตอนนี้
-
----
-
-## ✅ กรณี Restart ปกติ (ข้อมูล DB ยังอยู่)
-
-ให้เปิด **Docker Desktop ก่อน** แล้วรัน:
-
-```
-docker compose up -d
-```
-
-ระบบจะ start container ทั้งหมดใหม่ โดยยังใช้ข้อมูลเดิมใน PostgreSQL
-
----
-
-## ❗ กรณีระบบ Error / Login ไม่ได้ / Schema ผิด
-
-ให้ Reset ระบบทั้งหมด:
-
-```
-docker compose down -v
-docker compose up --build
-```
-
-คำสั่งนี้จะ:
-
-* ลบ PostgreSQL volume เก่า
-* สร้าง database ใหม่
-* รัน `init.sql` ใหม่
-* start services ใหม่ทั้งหมด
-
----
-
-## 🔧 กรณีแก้ `.env` หรือ `init.sql`
-
-ต้อง rebuild ระบบเสมอ:
-
-```
-docker compose down -v
-docker compose up --build
-```
-
----
-
-## 🧠 ลำดับการ start service (แนวคิด)
-
-1. PostgreSQL ต้อง start ก่อน
-2. Auth / Task / Log Service start ต่อ
-3. Frontend start
-4. Nginx start เป็น Gateway
-
-(Docker Compose จัดการลำดับให้อัตโนมัติ)
-
----
-
-# 📸 Screenshots
-
-ดูหลักฐานการทดสอบในโฟลเดอร์ `screenshots/`
-
----
-
-# 📚 สิ่งที่ได้เรียนรู้จากงานนี้
-
-* การออกแบบ Microservices Architecture
-* การตั้งค่า Reverse Proxy และ HTTPS
-* การทำ JWT Authentication Flow
-* การทำ Lightweight Distributed Logging
-* การใช้งาน Docker Compose เพื่อ orchestrate services
-
----
+### 🐳 วิธีรัน Local ด้วย Docker Compose
+1. Clone โปรเจกต์ลงมาในเครื่อง
+2. รันคำสั่งสร้าง Container:
+   ```bash
+   docker-compose up --build -d
+เข้าใช้งานที่หน้าเว็บ: http://localhost:8080☁️ วิธี Deploy ขึ้น Railwayสร้าง New Project ใน RailwayProvision PostgreSQL 2 ชุดแยกกันสำหรับ Auth และ TaskDeploy แต่ละ Service โดยเลือก Directory ที่ถูกต้องใน GitHub Repoตั้งค่า Public Domain ให้กับ Nginx และ Frontend เท่านั้น (Service อื่นให้รันแบบ Internal)🔑 Environment Variables ที่ใช้VariableDescriptionDATABASE_URLURL สำหรับเชื่อมต่อฐานข้อมูล PostgreSQL ของแต่ละ ServiceJWT_SECRETคีย์ลับสำหรับ Sign และ Verify Token (ต้องตรงกันทุก Service)PORTพอร์ตที่ Service นั้นๆ รัน (เช่น 3001, 3002)🧪 วิธีทดสอบระบบ (curl / Postman)1. ทดสอบ Login เพื่อรับ Token:Bashcurl -X POST [https://your-nginx.railway.app/api/auth/login](https://your-nginx.railway.app/api/auth/login) \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin", "password":"password123"}'
+2. ทดสอบดึง Task (ต้องแนบ Token):Bashcurl -X GET [https://your-nginx.railway.app/api/tasks](https://your-nginx.railway.app/api/tasks) \
+     -H "Authorization: Bearer <YOUR_TOKEN_HERE>"
+📸 Screenshots(ใส่รูปหน้า Login ของ Railway)(ใส่รูปหน้า Dashboard แสดงรายการ Task ที่ดึงข้อมูลมาจาก DB)⚠️ Known LimitationsStateless Consistency: ไม่มีการใช้ Foreign Key ข้ามฐานข้อมูลเนื่องจากเป็นคนละ Physical DBLogical Relation: ใช้ user_id จาก JWT เป็นตัวระบุเจ้าของข้อมูล (Logical Reference) เพื่อให้ระบบสามารถ Scale แยกกันได้โดยไม่ติดข้อจำกัดของ Relational Database
