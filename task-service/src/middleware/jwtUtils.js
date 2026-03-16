@@ -1,29 +1,14 @@
 const jwt = require('jsonwebtoken');
 
-// ดึงกุญแจจาก .env ถ้าไม่มีให้ใช้ค่า Default (ต้องตรงกันทุก Service)
-const secret = process.env.JWT_SECRET || 'engse207-super-secret-change-in-production-abc123';
-const expires = process.env.JWT_EXPIRES || '1h';
-
-/**
- * สร้าง Token เมื่อ Login สำเร็จ
- */
-function generateToken(payload) {
-  return jwt.sign(payload, secret, { expiresIn: expires });
-}
-
-/**
- * ตรวจสอบ Token ที่ส่งมาจาก Frontend
- */
-function verifyToken(token) {
+exports.verifyToken = (token) => {
   try {
-    return jwt.verify(token, secret);
+    // ลองเช็คดูว่า process.env.JWT_SECRET มีค่าไหม
+    if (!process.env.JWT_SECRET) {
+      console.error("❌ JWT_SECRET is undefined in Task Service!");
+    }
+    return jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret'); 
   } catch (err) {
-    throw new Error(err.message);
+    console.error("🔥 JWT Verify Failed:", err.message); // ดูใน Docker Logs จะเห็นสาเหตุ
+    throw err;
   }
-}
-
-module.exports = {
-  generateToken,
-  verifyToken,
-  secret // export ไว้เผื่อต้องใช้ในจุดอื่น
 };

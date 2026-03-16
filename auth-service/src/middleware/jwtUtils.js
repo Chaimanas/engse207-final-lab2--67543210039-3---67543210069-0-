@@ -1,14 +1,15 @@
 const jwt = require('jsonwebtoken');
+const SECRET_KEY = process.env.JWT_SECRET || 'your-very-secret-key';
 
-const secret = process.env.JWT_SECRET || 'engse207-super-secret-change-in-production-abc123';
-const expires = process.env.JWT_EXPIRES || '1h';
-
-const generateToken = (user) => {
-  return jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    secret,
-    { expiresIn: expires }
-  );
+// ฟังก์ชันสร้าง Token
+const generateToken = (payload) => {
+  return jwt.sign(payload, SECRET_KEY, { expiresIn: '1h' });
 };
 
-module.exports = { generateToken, secret };
+// ฟังก์ชันตรวจสอบ Token
+const verifyToken = (token) => {
+  return jwt.verify(token, SECRET_KEY);
+};
+
+// *** จุดสำคัญ: ต้อง export ออกไปเป็น Object ***
+module.exports = { generateToken, verifyToken };
