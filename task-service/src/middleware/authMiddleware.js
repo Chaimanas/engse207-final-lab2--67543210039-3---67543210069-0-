@@ -5,23 +5,17 @@ module.exports = function requireAuth(req, res, next) {
   const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
 
   if (!token) {
+    console.log("❌ [Auth] No token provided in headers");
     return res.status(401).json({ error: 'Unauthorized: No token provided' });
   }
+
   try {
-    req.user = verifyToken(token);  // { sub, email, role, username }
+    const decoded = verifyToken(token);
+    req.user = decoded; // เก็บข้อมูล user ไว้ใน req
+    console.log(`✅ [Auth] User ${decoded.username || decoded.sub} Authorized`);
     next();
   } catch (err) {
-    // ส่ง log JWT error ไปยัง Log Service (fire-and-forget)
-    fetch('http://log-service:3003/api/logs/internal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service: 'task-service', level: 'ERROR', event: 'JWT_INVALID',
-        ip_address: req.headers['x-real-ip'] || req.ip,
-        message: 'Invalid JWT token: ' + err.message,
-        meta: { error: err.message }
-      })
-    }).catch(() => {});
+    console.error("🔥 [Auth] JWT Verify Failed:", err.message);
     return res.status(401).json({ error: 'Unauthorized: ' + err.message });
   }
 };

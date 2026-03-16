@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="engse207-frontend-health" content="frontend-ok">
   <title>🔐 Task Board — Week 12 Security</title>
   <style>
     /* ═══════════════════════════════════════════════════════
@@ -643,9 +643,23 @@
 ════════════════════════════════════ -->
 <script>
 /* ─────────────────────────────────────
+   CRITICAL: Define functions early (before HTML uses them)
+───────────────────────────────────── */
+function switchTab(tab) {
+  document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+  document.querySelectorAll('.auth-tab').forEach((el, i) => {
+    el.classList.toggle('active', (i===0 && tab==='login') || (i===1 && tab==='register'));
+  });
+  document.getElementById('auth-msg').textContent = '';
+}
+
+/* ─────────────────────────────────────
    STATE & CONFIG
 ───────────────────────────────────── */
-const API = window.location.origin;
+const API_AUTH = 'http://localhost:3001';      // Auth Service
+const API_TASKS = 'http://localhost:3002';     // Task Service
+const API_USERS = 'http://localhost:3003';     // User Service
 let currentUser = null;
 let token       = localStorage.getItem('jwt_token');
 let allTasks    = [];
@@ -668,24 +682,57 @@ function logApiCall(method, url, status, duration, body = null) {
 
 async function apiFetch(url, options = {}) {
   const start = Date.now();
+
+  const token = localStorage.getItem('jwt_token');
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  // ใส่ Authorization เฉพาะตอนมี token
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   try {
-    const res = await fetch(url, options);
-    logApiCall(options.method || 'GET', url, res.status, Date.now() - start,
-      options.body ? JSON.parse(options.body) : null);
+    const res = await fetch(url, {
+      ...options,
+      headers
+    });
+
+    logApiCall(
+      options.method || 'GET',
+      url,
+      res.status,
+      Date.now() - start,
+      options.body ? JSON.parse(options.body) : null
+    );
+
     return res;
-  } catch(err) {
+
+  } catch (err) {
     logApiCall(options.method || 'GET', url, 0, Date.now() - start);
     throw err;
   }
 }
 
+// 🚩 แก้จากของเดิม 
 function authHeaders() {
-  // ดึงค่าสดๆ จาก localStorage ทุกครั้งที่เรียกใช้
-  const currentToken = localStorage.getItem('jwt_token'); 
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${currentToken}`
-  };
+    // 1. ดึง Token มาแบบชัวร์ๆ (ลองดึงทุกชื่อที่เป็นไปได้)
+    const token = localStorage.getItem('jwt_token') || localStorage.getItem('token');
+    
+    // 2. เช็กใน Console ว่า Token มีจริงไหม (พชรจะได้เห็นเองตอนกด F12)
+    if (!token) {
+        console.error("❌ No Token found in LocalStorage! Please Login again.");
+    } else {
+        console.log("✅ Sending Token:", token.substring(0, 10) + "...");
+    }
+
+    return { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${token}` 
+    };
 }
 
 /* ─────────────────────────────────────
@@ -702,15 +749,6 @@ function toast(msg, type = 'info', duration = 3000) {
 /* ─────────────────────────────────────
    AUTH
 ───────────────────────────────────── */
-function switchTab(tab) {
-  document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
-  document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
-  document.querySelectorAll('.auth-tab').forEach((el, i) => {
-    el.classList.toggle('active', (i===0 && tab==='login') || (i===1 && tab==='register'));
-  });
-  document.getElementById('auth-msg').textContent = '';
-}
-
 function showAuthMsg(msg, type) {
   const el = document.getElementById('auth-msg');
   el.className = `auth-msg ${type}`;
@@ -720,28 +758,50 @@ function showAuthMsg(msg, type) {
 async function doLogin() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  if (!email || !password) { showAuthMsg('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
+
+  if (!email || !password) {
+    showAuthMsg('กรุณากรอกข้อมูลให้ครบ', 'error');
+    return;
+  }
 
   const btn = document.querySelector('#login-form .btn-primary');
   btn.innerHTML = '<span class="spinner"></span> กำลังเข้าสู่ระบบ...';
   btn.disabled = true;
 
-  const res  = await apiFetch(`${API}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
-  const data = await res.json();
+  try {
 
-  btn.textContent = 'เข้าสู่ระบบ';
-  btn.disabled = false;
+    const res = await apiFetch(`${API_AUTH}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
 
-  if (res.ok) {
-    token = data.token;
-    localStorage.setItem('jwt_token', token);
-    initApp(data.user);
-  } else {
-    showAuthMsg('❌ ' + (data.error || 'Login ล้มเหลว'), 'error');
+    const data = await res.json();
+
+    btn.textContent = 'เข้าสู่ระบบ';
+    btn.disabled = false;
+
+    if (res.ok) {
+
+      const token = data.token;
+
+      // เก็บ JWT
+      localStorage.setItem("jwt_token", token);
+
+      // เริ่มระบบ
+      initApp(data.user);
+
+    } else {
+      showAuthMsg('❌ ' + (data.error || 'Login ล้มเหลว'), 'error');
+    }
+
+  } catch (err) {
+    btn.textContent = 'เข้าสู่ระบบ';
+    btn.disabled = false;
+    showAuthMsg('❌ Server error', 'error');
+    console.error(err);
   }
 }
 
@@ -749,12 +809,20 @@ async function doRegister() {
   const name     = document.getElementById('reg-name').value.trim();
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
-  if (!name || !email || !password) { showAuthMsg('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
 
-  const res  = await apiFetch(`${API}/api/auth/register`, {
+  if (!name || !email || !password) { 
+    showAuthMsg('กรุณากรอกข้อมูลให้ครบ', 'error'); 
+    return; 
+  }
+
+  const res = await apiFetch(`${API_AUTH}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password })
+    body: JSON.stringify({
+      username: name, // ✅ เปลี่ยนจาก name เป็น username ให้ตรงกับที่ Backend รอรับ
+      email: email,
+      password: password
+    })
   });
   const data = await res.json();
 
@@ -814,11 +882,11 @@ function showPage(page) {
 }
 
 async function loadTasks() {
-  const baseUrl = API || ''; 
+  const baseUrl = API_TASKS || '';
   try {
-    const res = await apiFetch(`${baseUrl}/api/tasks`, { 
+    const res = await apiFetch(`${baseUrl}/api/tasks`, {
       method: 'GET',
-      headers: authHeaders() 
+      headers: authHeaders()
     });
 
     if (res.ok) {
@@ -891,7 +959,7 @@ function renderTasks() {
     ? allTasks
     : allTasks.filter(t => {
         const s = (t.status || 'TODO').toUpperCase();
-        return s === currentFilter.toUpperCase() || 
+        return s === currentFilter.toUpperCase() ||
                (currentFilter === 'IN_PROGRESS' && s === 'DOING'); // ดักกรณี DOING ด้วย
       });
 
@@ -901,15 +969,15 @@ function renderTasks() {
   }
 
   const priorityIcon = { low: '🟢', medium: '🟡', high: '🔴' };
-  
+
   list.innerHTML = tasks.map(t => {
     // ดึงค่ามาพักไว้ และทำให้เป็นตัวใหญ่/เล็กตามที่ CSS ต้องการ
     const s = (t.status || 'TODO').toUpperCase();
     const p = (t.priority || 'medium').toLowerCase();
-    
+
     // สำคัญ: รองรับ ID ทั้งแบบ SQL (id) และ MongoDB (_id)
-    const taskId = t.id || t._id || t.task_id; 
-    
+    const taskId = t.id || t._id || t.task_id;
+
     let statusDisplay = '<span class="chip chip-todo">⬜ TODO</span>';
     if (s === 'IN_PROGRESS' || s === 'DOING') {
         statusDisplay = '<span class="chip chip-inprogress">🔄 In Progress</span>';
@@ -931,7 +999,7 @@ function renderTasks() {
         ${statusDisplay}
         <span class="chip chip-${p}">${priorityIcon[p] || '·'} ${p}</span>
         <span class="chip chip-owner">👤 ${escHtml(t.owner_name || t.owner_id || 'Me')}</span>
-        
+
         <select class="status-select" onchange="quickStatusUpdate(${taskId}, this.value)">
           <option value="TODO" ${s === 'TODO' ? 'selected' : ''}>⬜ TODO</option>
           <option value="IN_PROGRESS" ${s === 'IN_PROGRESS' || s === 'DOING' ? 'selected' : ''}>🔄 In Progress</option>
@@ -942,6 +1010,7 @@ function renderTasks() {
     `;
   }).join('');
 }
+
 /* ─────────────────────────────────────
    TASKS — CREATE / EDIT / DELETE
 ───────────────────────────────────── */
@@ -995,9 +1064,9 @@ async function submitTask() {
 
   try {
     let res;
-    // ใช้ API Path ที่ถูกต้อง (ระวังเรื่อง / ปิดท้าย)
-    const url = id ? `${API}/api/tasks/${id}` : `${API}/api/tasks/`;
-    
+    // ใช้ API Path ที่ถูกต้อง (ไม่มี trailing slash)
+    const url = id ? `${API_TASKS}/api/tasks/${id}` : `${API_TASKS}/api/tasks`;
+
     res = await apiFetch(url, {
       method: id ? 'PUT' : 'POST',
       headers: authHeaders(), // ต้องดึง Token ล่าสุดเสมอ
@@ -1034,7 +1103,7 @@ async function submitTask() {
 }
 
 async function quickStatusUpdate(id, newStatus) {
-  const res = await apiFetch(`${API}/api/tasks/${id}`, {
+  const res = await apiFetch(`${API_TASKS}/api/tasks/${id}`, {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ status: newStatus })
@@ -1055,7 +1124,7 @@ function confirmDelete(id) {
   deleteTargetId = id;
   document.getElementById('confirm-modal').classList.remove('hidden');
   document.getElementById('confirm-delete-btn').onclick = async () => {
-    const res = await apiFetch(`${API}/api/tasks/${deleteTargetId}`, {
+    const res = await apiFetch(`${API_TASKS}/api/tasks/${deleteTargetId}`, {
       method: 'DELETE',
       headers: authHeaders()
     });
@@ -1080,7 +1149,7 @@ function closeConfirm() {
    USERS
 ───────────────────────────────────── */
 async function loadUsers() {
-  const res  = await apiFetch(`${API}/api/users/`, { headers: authHeaders() });
+  const res  = await apiFetch(`${API_USERS}/api/users`, { headers: authHeaders() });
   const data = await res.json();
 
   const adminDiv    = document.getElementById('users-admin-only');
@@ -1117,7 +1186,7 @@ async function loadUsers() {
    PROFILE
 ───────────────────────────────────── */
 async function loadProfile() {
-  const res  = await apiFetch(`${API}/api/users/me`, { headers: authHeaders() });
+  const res  = await apiFetch(`${API_USERS}/api/users/me`, { headers: authHeaders() });
   const data = await res.json();
   const u    = data.user || currentUser;
   if (!u) return;
@@ -1196,7 +1265,7 @@ if (token) {
   (async () => {
     try {
       // เรียก Verify Token ผ่าน apiFetch เพื่อบันทึกลง Log Dashboard
-      const res = await apiFetch(`${API}/api/auth/verify`, {
+      const res = await apiFetch(`${API_AUTH}/api/auth/verify`, {
         method: 'GET',
         headers: authHeaders()
       });
