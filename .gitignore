@@ -1,7 +1,29 @@
+# node modules
 node_modules/
+
+# environment variables
 .env
-nginx/certs/*.pem
+.env.*
+
+# logs
+logs
 *.log
-*.cwd
-tmp-*
+npm-debug.log*
+
+# build
+dist/
+build/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# vscode
+.vscode/
+
+# docker
+*.db
+*.sqlite
+
+# railway cache
+.railway/
