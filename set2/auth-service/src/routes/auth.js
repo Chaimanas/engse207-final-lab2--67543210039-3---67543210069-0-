@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const bcrypt = require('bcryptjs');const pool = require('../db/db');  
-const { generateToken } = require('../utils/jwt'); 
+const { generateToken } = require('../middleware/jwtUtils');
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
