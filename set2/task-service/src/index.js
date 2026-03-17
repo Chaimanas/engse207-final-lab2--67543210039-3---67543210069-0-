@@ -10,7 +10,6 @@ app.use(express.json());
 
 console.log("USING DATABASE_URL:", process.env.DATABASE_URL ? "YES" : "NO");
 
-initDB();
 
 app.get('/health', (req, res) => {
   res.send("Task Service OK");
