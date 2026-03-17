@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
+<script src="config.js"></script>
 <head>
   <meta charset="UTF-8">
   <meta name="engse207-frontend-health" content="frontend-ok">
@@ -657,9 +658,10 @@ function switchTab(tab) {
 /* ─────────────────────────────────────
    STATE & CONFIG
 ───────────────────────────────────── */
-const API_AUTH = 'http://localhost:3001';      // Auth Service
-const API_TASKS = 'http://localhost:3002';     // Task Service
-const API_USERS = 'http://localhost:3003';     // User Service
+    // User Service
+const API_AUTH = window.APP_CONFIG.AUTH_URL;
+const API_TASKS = window.APP_CONFIG.TASK_URL;
+const API_USERS = window.APP_CONFIG.USER_URL;
 let currentUser = null;
 let token       = localStorage.getItem('jwt_token');
 let allTasks    = [];
