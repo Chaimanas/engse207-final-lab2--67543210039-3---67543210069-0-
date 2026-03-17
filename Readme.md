@@ -1,5 +1,6 @@
-รายงานระบบ Microservices (Set 2)
-👨‍🎓 ชื่อนักศึกษา
+# รายงานระบบ Microservices (Set 2)
+
+## 👨‍🎓 ชื่อนักศึกษา
 
 นาย: พชร จันทร์ยวง
 รหัสนักศึกษา: 67543210039-3
@@ -7,44 +8,48 @@
 นาย: ชัยมนัส วัฒนปรีดา
 รหัสนักศึกษา: 67543210069-0
 
-🌐 URL ของทุก Service (Railway)
+---
 
-API Gateway (Nginx)
+## 🌐 URL ของทุก Service (Railway)
+
+### API Gateway (Nginx)
+
 👉 https://your-gateway.up.railway.app
 
-Auth Service
+### Auth Service
+
 👉 https://your-auth.up.railway.app
 
-Task Service
+### Task Service
+
 👉 https://your-task.up.railway.app
 
-Log Service
+### Log Service
+
 👉 https://your-log.up.railway.app
 
-Frontend
+### Frontend
+
 👉 https://your-frontend.up.railway.app
 
-🔗 การต่อยอดจาก Set 1 → Set 2
+---
 
-Set 1:
+## 🔗 การต่อยอดจาก Set 1 → Set 2
 
-ระบบเป็น monolith หรือ service เดียว
+### Set 1
 
-ใช้ database เดียว
+* ระบบเป็น monolith หรือ service เดียว
+* ใช้ database เดียว
+* ไม่มี gateway
+* logic รวมกันทั้งหมด
 
-ไม่มี gateway
-
-logic รวมกันทั้งหมด
-
-Set 2 (Microservices):
+### Set 2 (Microservices)
 
 แยกเป็น 3 services:
 
-Auth Service → จัดการ user / login
-
-Task Service → จัดการงาน
-
-Log Service → เก็บ activity log
+* Auth Service → จัดการ user / login
+* Task Service → จัดการงาน
+* Log Service → เก็บ activity log
 
 แต่ละ service มี database แยกของตัวเอง
 
@@ -52,114 +57,160 @@ Log Service → เก็บ activity log
 
 ใช้ JWT Token สำหรับ authentication
 
-👉 ข้อดี:
+### 👉 ข้อดี
 
-scale แยกได้
+* scale แยกได้
+* deploy แยกได้
+* ลด coupling
 
-deploy แยกได้
+---
 
-ลด coupling
+## 🏗️ Architecture Diagram (Cloud)
 
-🏗️ Architecture Diagram (Cloud)
+```
 [ Client / Browser ]
           |
           ▼
    [ API Gateway (Nginx) ]
      /        |         \
     ▼         ▼          ▼
-[Auth]    [Task]     [Log]
-  |          |          |
-  ▼          ▼          ▼
-[DB1]     [DB2]      [DB3]
+ [Auth]    [Task]     [Log]
+   |          |          |
+   ▼          ▼          ▼
+ [DB1]     [DB2]      [DB3]
 
 (Postgres)(Postgres)(Postgres)
+```
 
-🚪 Gateway Strategy
+---
 
-✅ ใช้: Nginx Reverse Proxy
+## 🚪 Gateway Strategy
 
-📌 Routing:
+✅ ใช้: **Nginx Reverse Proxy**
 
-/api/auth → Auth Service
+### 📌 Routing
 
-/api/tasks → Task Service
+* `/api/auth` → Auth Service
+* `/api/tasks` → Task Service
+* `/api/logs` → Log Service
+* `/` → Frontend
 
-/api/logs → Log Service
+### 🎯 เหตุผลที่เลือก
 
-/ → Frontend
+* ง่ายและ lightweight
+* config ชัดเจน
+* รองรับ load balancing ได้
+* ใช้เป็น entry point เดียว
 
-🎯 เหตุผลที่เลือก
+---
 
-ง่ายและ lightweight
+## 🐳 วิธีรัน Local (Docker Compose)
 
-config ชัดเจน
-
-รองรับ load balancing ได้
-
-ใช้เป็น entry point เดียว
-
-🐳 วิธีรัน Local (Docker Compose)
+```bash
 docker-compose up --build
-📦 Services ที่รัน:
+```
 
-nginx
+### 📦 Services ที่รัน
 
-auth-service
+* nginx
+* auth-service
+* task-service
+* log-service
+* postgres (3 ตัว)
 
-task-service
+### 📌 หลังรัน
 
-log-service
+* Gateway: http://localhost
+* Auth: http://localhost/api/auth
+* Task: http://localhost/api/tasks
+* Log: http://localhost/api/logs
 
-postgres (3 ตัว)
+---
 
-📌 หลังรัน:
+## ⚙️ Environment Variables
 
-Gateway: http://localhost
+### Auth Service
 
-Auth: http://localhost/api/auth
-
-Task: http://localhost/api/tasks
-
-Log: http://localhost/api/logs
-
-⚙️ Environment Variables
-Auth Service
+```
 DATABASE_URL=postgres://user:pass@auth-db:5432/authdb
 JWT_SECRET=your_secret
 PORT=3001
-Task Service
+```
+
+### Task Service
+
+```
 DATABASE_URL=postgres://user:pass@task-db:5432/taskdb
 PORT=3002
-Log Service
+```
+
+### Log Service
+
+```
 DATABASE_URL=postgres://user:pass@log-db:5432/logdb
 PORT=3003
-Nginx
+```
+
+### Nginx
+
+```
 (no env needed)
-🧪 วิธีทดสอบด้วย curl (ใช้ URL จริง)
-🔐 1. Register
+```
+
+---
+
+## 🧪 วิธีทดสอบด้วย curl (ใช้ URL จริง)
+
+### 🔐 1. Register
+
+```bash
 curl -X POST https://your-gateway.up.railway.app/api/auth/register \
 -H "Content-Type: application/json" \
 -d '{"username":"test","email":"test@test.com","password":"123456"}'
-🔑 2. Login
+```
+
+### 🔑 2. Login
+
+```bash
 curl -X POST https://your-gateway.up.railway.app/api/auth/login \
 -H "Content-Type: application/json" \
 -d '{"email":"admin@test.com","password":"123456"}'
+```
+
 📌 จะได้ token:
+
+```
 {
   "token": "xxxxx"
 }
-📋 3. Create Task
+```
+
+### 📋 3. Create Task
+
+```bash
 curl -X POST https://your-gateway.up.railway.app/api/tasks \
 -H "Authorization: Bearer YOUR_TOKEN" \
 -H "Content-Type: application/json" \
 -d '{"title":"Test Task"}'
-📄 4. Get Tasks
+```
+
+### 📄 4. Get Tasks
+
+```bash
 curl https://your-gateway.up.railway.app/api/tasks \
 -H "Authorization: Bearer YOUR_TOKEN"
-📊 5. Get Logs
+```
+
+### 📊 5. Get Logs
+
+```bash
 curl https://your-gateway.up.railway.app/api/logs \
 -H "Authorization: Bearer YOUR_TOKEN"
-⚠️ Known Limitations
+```
+
+---
+
+## ⚠️ Known Limitations
 
 ❌ ไม่มี Foreign Key ข้าม database
 
